@@ -1652,7 +1652,18 @@ function ToolPart(props: { last: boolean; part: ToolPart; message: AssistantMess
     return true
   })
 
+  const sync = useSync()
+  // "!" shell: the server pairs it with a synthetic user text part
+  const userShell = createMemo(() =>
+    (sync.data.part[props.message.parentID] ?? []).some(
+      (p) => p.type === "text" && p.synthetic && p.text === "The following tool was executed by the user",
+    ),
+  )
+
   const toolprops = {
+    get userShell() {
+      return userShell()
+    },
     get metadata() {
       return props.part.state.status === "pending" ? {} : (props.part.state.metadata ?? {})
     },
@@ -1729,6 +1740,7 @@ type ToolProps = {
   tool: string
   output?: string
   part: ToolPart
+  userShell?: boolean
 }
 function GenericTool(props: ToolProps) {
   const { theme } = useTheme()
@@ -1993,7 +2005,7 @@ function Shell(props: ToolProps) {
     return collapsed().output
   })
   const command = createMemo(() => stringValue(props.input.command) ?? "")
-  const comments = createMemo(() => commandComments(command()))
+  const comments = createMemo(() => (props.userShell ? undefined : commandComments(command())))
   const shownCommand = createMemo(() => (expanded() ? command() : (comments() ?? command())))
   const expandable = createMemo(() => collapsed().overflow || comments() !== undefined)
 
