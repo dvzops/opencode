@@ -190,6 +190,8 @@ const layer = Layer.effect(
       return parts
     })
 
+    const RETITLE_AT = 4
+    const autoTitled = new Map<string, string>()
     const title = Effect.fn("SessionPrompt.ensureTitle")(function* (input: {
       session: Session.Info
       history: SessionV1.WithParts[]
@@ -197,13 +199,15 @@ const layer = Layer.effect(
       modelID: ModelV2.ID
     }) {
       if (input.session.parentID) return
-      if (!Session.isDefaultTitle(input.session.title)) return
 
       const real = (m: SessionV1.WithParts) =>
         m.info.role === "user" && !m.parts.every((p) => "synthetic" in p && p.synthetic)
       const idx = input.history.findIndex(real)
       if (idx === -1) return
-      if (input.history.filter(real).length !== 1) return
+      const users = input.history.filter(real)
+      // ponytail: title once from the first message, once more from the first four; never over a /rename
+      const retitle = users.length === RETITLE_AT && autoTitled.get(input.session.id) === input.session.title
+      if (!retitle && (users.length !== 1 || !Session.isDefaultTitle(input.session.title))) return
 
       const context = input.history.slice(0, idx + 1)
       const firstUser = context[idx]
@@ -212,6 +216,10 @@ const layer = Layer.effect(
 
       const subtasks = firstUser.parts.filter((p): p is SessionV1.SubtaskPart => p.type === "subtask")
       const onlySubtasks = subtasks.length > 0 && firstUser.parts.every((p) => p.type === "subtask")
+      const userText = users
+        .flatMap((m) => m.parts.filter((p): p is SessionV1.TextPart => p.type === "text" && !p.synthetic))
+        .map((p) => p.text)
+        .join("\n---\n")
 
       const ag = yield* agents.get("title")
       if (!ag) return
@@ -219,9 +227,11 @@ const layer = Layer.effect(
         ? yield* provider.getModel(ag.model.providerID, ag.model.modelID)
         : ((yield* provider.getSmallModel(input.providerID)) ??
           (yield* provider.getModel(input.providerID, input.modelID)))
-      const msgs = onlySubtasks
-        ? [{ role: "user" as const, content: subtasks.map((p) => p.prompt).join("\n") }]
-        : yield* MessageV2.toModelMessagesEffect(context, mdl)
+      const msgs = retitle
+        ? [{ role: "user" as const, content: userText }]
+        : onlySubtasks
+          ? [{ role: "user" as const, content: subtasks.map((p) => p.prompt).join("\n") }]
+          : yield* MessageV2.toModelMessagesEffect(context, mdl)
       const text = yield* llm
         .stream({
           agent: ag,
@@ -247,6 +257,7 @@ const layer = Layer.effect(
         .find((line) => line.length > 0)
       if (!cleaned) return
       const t = cleaned.length > 100 ? cleaned.substring(0, 97) + "..." : cleaned
+      autoTitled.set(input.session.id, t)
       yield* sessions
         .setTitle({ sessionID: input.session.id, title: t })
         .pipe(Effect.catchCause((cause) => Effect.logError("failed to generate title", { error: Cause.squash(cause) })))
