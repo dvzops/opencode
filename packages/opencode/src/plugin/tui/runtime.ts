@@ -604,7 +604,9 @@ function pluginApi(runtime: RuntimeState, plugin: PluginEntry, scope: PluginScop
     register(plugin: TuiSlotPlugin) {
       const id = count ? `${base}:${count}` : base
       count += 1
-      scope.track(host.register({ ...plugin, id }))
+      // ponytail: external plugins get no sidebar_content (OMO's Models roster); core panels only
+      const { sidebar_content: _, ...slots } = plugin.slots as Record<string, unknown>
+      scope.track(host.register({ ...plugin, id, slots: load.source === "internal" ? plugin.slots : slots }))
       return id
     },
   }
