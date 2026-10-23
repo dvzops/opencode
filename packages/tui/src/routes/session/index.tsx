@@ -1134,7 +1134,15 @@ export function Session() {
         <box flexDirection="row" flexGrow={1} minHeight={0}>
           <box flexGrow={1} minHeight={0} paddingBottom={1} paddingLeft={2} paddingRight={2} gap={1}>
             <Show when={session()}>
-              <box flexDirection="row" justifyContent="space-between" gap={2} flexShrink={0} paddingTop={1}>
+              <box
+                flexDirection="row"
+                justifyContent="space-between"
+                gap={2}
+                flexShrink={0}
+                paddingTop={1}
+                border={["bottom"]}
+                borderColor={theme.warning}
+              >
                 <text fg={theme.text}>
                   <b>{session()!.title}</b>
                 </text>
