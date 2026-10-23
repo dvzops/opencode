@@ -74,7 +74,7 @@ import { useTuiConfig } from "../../config"
 import { useClipboard } from "../../context/clipboard"
 import { nextThinkingMode, reasoningSummary, useThinkingMode, type ThinkingMode } from "../../context/thinking"
 import { getScrollAcceleration } from "../../util/scroll"
-import { collapseToolOutput } from "../../util/collapse-tool-output"
+import { collapseToolOutput, commandComments } from "../../util/collapse-tool-output"
 import { usePluginRuntime } from "../../plugin/runtime"
 import { DialogRetryAction } from "../../component/dialog-retry-action"
 import { getRevertDiffFiles } from "../../util/revert-diff"
@@ -1992,6 +1992,10 @@ function Shell(props: ToolProps) {
     if (expanded() || !collapsed().overflow) return output()
     return collapsed().output
   })
+  const command = createMemo(() => stringValue(props.input.command) ?? "")
+  const comments = createMemo(() => commandComments(command()))
+  const shownCommand = createMemo(() => (expanded() ? command() : (comments() ?? command())))
+  const expandable = createMemo(() => collapsed().overflow || comments() !== undefined)
 
   const workdirDisplay = createMemo(() => {
     const workdir = stringValue(props.input.workdir)
@@ -2013,16 +2017,16 @@ function Shell(props: ToolProps) {
         <BlockTool
           title={title()}
           part={props.part}
-          onClick={collapsed().overflow ? () => setExpanded((prev) => !prev) : undefined}
+          onClick={expandable() ? () => setExpanded((prev) => !prev) : undefined}
         >
           <box gap={1}>
-            <Show when={isRunning()} fallback={<text fg={theme.text}>$ {stringValue(props.input.command)}</text>}>
-              <Spinner color={theme.text}>{stringValue(props.input.command)}</Spinner>
+            <Show when={isRunning()} fallback={<text fg={theme.text}>$ {shownCommand()}</text>}>
+              <Spinner color={theme.text}>{shownCommand()}</Spinner>
             </Show>
             <Show when={output()}>
               <text fg={theme.text}>{limited()}</text>
             </Show>
-            <Show when={collapsed().overflow}>
+            <Show when={expandable()}>
               <text fg={theme.textMuted}>{expanded() ? "Click to collapse" : "Click to expand"}</text>
             </Show>
           </box>

@@ -1,3 +1,10 @@
+export function commandComments(command: string) {
+  const lines = command.split("\n")
+  const comments = lines.filter((line) => line.trimStart().startsWith("#"))
+  if (comments.length === 0 || comments.length === lines.length) return undefined
+  return comments.join("\n")
+}
+
 export function collapseToolOutput(output: string, maxLines: number, maxChars: number) {
   const lines = output.split("\n")
   if (lines.length <= maxLines && Array.from(output).length <= maxChars) {
