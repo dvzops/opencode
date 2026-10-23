@@ -22,6 +22,7 @@ import { useSync } from "../../context/sync"
 import { useEvent } from "../../context/event"
 import { SplitBorder } from "../../ui/border"
 import { useTuiPaths, useTuiTerminalEnvironment } from "../../context/runtime"
+import { abbreviateHome } from "../../runtime"
 import { Spinner } from "../../component/spinner"
 import { createSyntaxStyleMemo, generateSubtleSyntax, selectedForeground, useTheme } from "../../context/theme"
 import { BoxRenderable, ScrollBoxRenderable, addDefaultParsers, TextAttributes, RGBA } from "@opentui/core"
@@ -266,11 +267,19 @@ export function Session() {
   const [showGenericToolOutput, setShowGenericToolOutput] = kv.signal("generic_tool_output_visibility", false)
 
   const wide = createMemo(() => dimensions().width > 120)
+  // ponytail: auto sidebar only while the session has unfinished todos; the rest is in the footer
+  const hasSteps = createMemo(() => (sync.data.todo[route.sessionID] ?? []).some((t) => t.status !== "completed"))
   const sidebarVisible = createMemo(() => {
     if (session()?.parentID) return false
     if (sidebarOpen()) return true
-    if (sidebar() === "auto" && wide()) return true
+    if (sidebar() === "auto" && wide() && hasSteps()) return true
     return false
+  })
+  const titlePath = createMemo(() => {
+    const dir = session()?.directory || project.instance.directory() || paths.cwd
+    const out = abbreviateHome(dir, paths.home)
+    const branch = session()?.directory === project.instance.directory() ? sync.data.vcs?.branch : undefined
+    return branch ? out + ":" + branch : out
   })
   const showTimestamps = createMemo(() => timestamps() === "show")
   const contentWidth = createMemo(() => dimensions().width - (sidebarVisible() ? 42 : 0) - 4)
@@ -1111,6 +1120,16 @@ export function Session() {
       >
         <box flexDirection="row" flexGrow={1} minHeight={0}>
           <box flexGrow={1} minHeight={0} paddingBottom={1} paddingLeft={2} paddingRight={2} gap={1}>
+            <Show when={session() && !sidebarVisible()}>
+              <box flexDirection="row" justifyContent="space-between" gap={2} flexShrink={0} paddingTop={1}>
+                <text fg={theme.text}>
+                  <b>{session()!.title}</b>
+                </text>
+                <text fg={theme.textMuted} flexShrink={0}>
+                  {titlePath()}
+                </text>
+              </box>
+            </Show>
             <Show when={session()}>
               <scrollbox
                 ref={(r) => (scroll = r)}
