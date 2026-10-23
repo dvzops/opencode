@@ -70,6 +70,9 @@ export const Info = Schema.Struct({
   scroll_speed: Schema.optional(ScrollSpeed).annotate({ description: "TUI scroll speed" }),
   scroll_acceleration: Schema.optional(ScrollAcceleration),
   diff_style: Schema.optional(DiffStyle),
+  shell_output_lines: Schema.optional(Schema.Int.check(Schema.isGreaterThan(0))).annotate({
+    description: "Lines of shell output shown before collapsing (default: 10)",
+  }),
   cursor: Schema.optional(Cursor),
   mouse: Schema.optional(Schema.Boolean).annotate({ description: "Enable or disable mouse capture (default: true)" }),
 })
