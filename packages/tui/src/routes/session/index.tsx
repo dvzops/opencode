@@ -2000,12 +2000,14 @@ function Shell(props: ToolProps) {
   const maxLines = ctx.tui.shell_output_lines ?? 10
   const maxChars = createMemo(() => maxLines * Math.max(20, ctx.width - 6))
   const collapsed = createMemo(() => collapseToolOutput(output(), maxLines, maxChars()))
-  const limited = createMemo(() => {
-    if (expanded() || !collapsed().overflow) return output()
-    return collapsed().output
-  })
   const command = createMemo(() => stringValue(props.input.command) ?? "")
   const comments = createMemo(() => (props.userShell ? undefined : commandComments(command())))
+  const limited = createMemo(() => {
+    if (expanded()) return output()
+    if (comments() !== undefined) return ""
+    if (!collapsed().overflow) return output()
+    return collapsed().output
+  })
   const shownCommand = createMemo(() => (expanded() ? command() : (comments() ?? command())))
   const expandable = createMemo(() => collapsed().overflow || comments() !== undefined)
 
@@ -2035,7 +2037,7 @@ function Shell(props: ToolProps) {
             <Show when={isRunning()} fallback={<text fg={theme.text}>$ {shownCommand()}</text>}>
               <Spinner color={theme.text}>{shownCommand()}</Spinner>
             </Show>
-            <Show when={output()}>
+            <Show when={limited()}>
               <text fg={theme.text}>{limited()}</text>
             </Show>
             <Show when={expandable()}>
