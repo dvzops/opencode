@@ -289,10 +289,11 @@ export function Session() {
     const tokens = t.input + t.output + t.reasoning + t.cache.read + t.cache.write
     if (tokens <= 0) return
     const model = sync.data.provider.find((p) => p.id === last.providerID)?.models[last.modelID]
-    const pct = model?.limit.context ? ` (${Math.round((tokens / model.limit.context) * 100)}%)` : ""
+    const pct = model?.limit.context ? Math.round((tokens / model.limit.context) * 100) : undefined
     const cost = session()?.cost ?? 0
-    return Locale.number(tokens) + pct + (cost > 0 ? " · " + titleMoney.format(cost) : "")
+    return { tokens: Locale.number(tokens), pct, cost: cost > 0 ? titleMoney.format(cost) : undefined }
   })
+  const pctColor = (pct: number) => (pct > 30 ? theme.error : pct >= 10 ? theme.warning : theme.textMuted)
   const showTimestamps = createMemo(() => timestamps() === "show")
   const contentWidth = createMemo(() => dimensions().width - (sidebarVisible() ? 42 : 0) - 4)
   const providers = createMemo(() => Model.index(sync.data.provider))
@@ -1138,7 +1139,23 @@ export function Session() {
                   <b>{session()!.title}</b>
                 </text>
                 <text fg={theme.textMuted} flexShrink={0}>
-                  {[titlePath(), titleUsage()].filter(Boolean).join(" · ")}
+                  {titlePath()}
+                  <Show when={titleUsage()}>
+                    {(u) => (
+                      <>
+                        {" · "}
+                        {u().tokens}
+                        <Show when={u().pct !== undefined}>
+                          {" "}
+                          <span style={{ fg: pctColor(u().pct!) }}>({u().pct}%)</span>
+                        </Show>
+                        <Show when={u().cost}>
+                          {" · "}
+                          <span style={{ fg: theme.text }}>{u().cost}</span>
+                        </Show>
+                      </>
+                    )}
+                  </Show>
                 </text>
               </box>
             </Show>
