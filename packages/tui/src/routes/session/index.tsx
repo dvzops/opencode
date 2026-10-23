@@ -23,6 +23,7 @@ import { useEvent } from "../../context/event"
 import { SplitBorder } from "../../ui/border"
 import { useTuiPaths, useTuiTerminalEnvironment } from "../../context/runtime"
 import { abbreviateHome } from "../../runtime"
+const titleMoney = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" })
 import { Spinner } from "../../component/spinner"
 import { createSyntaxStyleMemo, generateSubtleSyntax, selectedForeground, useTheme } from "../../context/theme"
 import { BoxRenderable, ScrollBoxRenderable, addDefaultParsers, TextAttributes, RGBA } from "@opentui/core"
@@ -280,6 +281,17 @@ export function Session() {
     const out = abbreviateHome(dir, paths.home)
     const branch = session()?.directory === project.instance.directory() ? sync.data.vcs?.branch : undefined
     return branch ? out + ":" + branch : out
+  })
+  const titleUsage = createMemo(() => {
+    const last = messages().findLast((m): m is AssistantMessage => m.role === "assistant" && m.tokens.output > 0)
+    if (!last) return
+    const t = last.tokens
+    const tokens = t.input + t.output + t.reasoning + t.cache.read + t.cache.write
+    if (tokens <= 0) return
+    const model = sync.data.provider.find((p) => p.id === last.providerID)?.models[last.modelID]
+    const pct = model?.limit.context ? ` (${Math.round((tokens / model.limit.context) * 100)}%)` : ""
+    const cost = session()?.cost ?? 0
+    return Locale.number(tokens) + pct + (cost > 0 ? " · " + titleMoney.format(cost) : "")
   })
   const showTimestamps = createMemo(() => timestamps() === "show")
   const contentWidth = createMemo(() => dimensions().width - (sidebarVisible() ? 42 : 0) - 4)
@@ -1120,13 +1132,13 @@ export function Session() {
       >
         <box flexDirection="row" flexGrow={1} minHeight={0}>
           <box flexGrow={1} minHeight={0} paddingBottom={1} paddingLeft={2} paddingRight={2} gap={1}>
-            <Show when={session() && !sidebarVisible()}>
+            <Show when={session()}>
               <box flexDirection="row" justifyContent="space-between" gap={2} flexShrink={0} paddingTop={1}>
                 <text fg={theme.text}>
                   <b>{session()!.title}</b>
                 </text>
                 <text fg={theme.textMuted} flexShrink={0}>
-                  {titlePath()}
+                  {[titlePath(), titleUsage()].filter(Boolean).join(" · ")}
                 </text>
               </box>
             </Show>
